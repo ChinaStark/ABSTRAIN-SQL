@@ -8,7 +8,7 @@
 
 hydra:
   searchpath:
-    - file:///zhiliang/verl/verl/trainer/config
+    - pkg://verl.trainer.config
 
 defaults:
   - ppo_trainer
@@ -24,9 +24,8 @@ data:
   max_prompt_length: 6144
   max_response_length: 2048
 
-  # One prompt ultimately contributes 8 trajectories.
-  # 4 prompts -> 32 trajectories per policy update.
-  train_batch_size: 32
+  # 4 prompts x rollout.n=8 -> 32 trajectories per policy update.
+  train_batch_size: 4
   gen_batch_size: ${data.train_batch_size}
   val_batch_size: 128
 
@@ -35,18 +34,16 @@ data:
   truncation: error
   shuffle: True
 
-custom_reward_function:
-  path: /zhiliang/rein_sql_v3_final/sql_reward.py
-  name: compute_score
-  reward_kwargs:
-    db_root: /zhiliang/data/train_databases
-    dev_db_root: /zhiliang/data/dev_databases
-    exec_timeout: 30.0
-
-# SQL reward is executed by sql_reward.py in the custom trainer.  The verl
-# agent reward loop expects a generic ``label`` field and must stay disabled.
-reward_model:
-  use_reward_loop: false
+reward:
+  reward_manager:
+    name: naive
+  custom_reward_function:
+    path: /zhiliang/rein_sql_v3_final/sql_reward.py
+    name: compute_score
+    reward_kwargs:
+      db_root: /zhiliang/data/train_databases
+      dev_db_root: /zhiliang/data/dev_databases
+      exec_timeout: 30.0
 
 algorithm:
   adv_estimator: grpo
@@ -56,21 +53,9 @@ algorithm:
   filter_groups:
     enable: False
 
-  adaptive_rollout:
-    # Fixed rollout mode: dynamic/adaptive sampling is disabled.
-    enable: False
-
-    n_correct: 4
-    n_wrong: 4
-    probe_n: 8
-
+  rein_sql:
+    # Every prompt receives exactly actor_rollout_ref.rollout.n samples.
     correct_threshold: 1.0
-    max_num_gen_batches: 0
-    stage2_dump_path: null
-
-    beyond_n_abstain: 2
-    within_abstain_cap: 2
-
     reward_values:
       format_per_tag: 0.1
       format_full: 0.3
@@ -94,7 +79,7 @@ actor_rollout_ref:
     optim:
       lr: 1.0e-6
 
-    # 32 trajectories are collected when train_batch_size=4 and n=8.
+    # 4 prompts x rollout.n=8 -> 32 trajectories per policy update.
     ppo_mini_batch_size: 32
     ppo_max_token_len_per_gpu: 32000
     use_kl_loss: True
@@ -111,7 +96,7 @@ actor_rollout_ref:
     mode: async
     dtype: bfloat16
 
-    # Must equal n_correct + n_wrong.
+    # Fixed sampling: every prompt gets exactly this many trajectories.
     n: 8
     temperature: 1.1
     top_p: 1.0
@@ -120,7 +105,7 @@ actor_rollout_ref:
     # Qwen3-4B: TP=1 is the preferred 2xH100 starting point.
     # Qwen3-8B: start with TP=2 if memory/KV cache is tight.
     tensor_model_parallel_size: 1
-    gpu_memory_utilization: 0.75
+    gpu_memory_utilization: 0.60
     data_parallel_size: 1
     pipeline_model_parallel_size: 1
     prompt_length: 6144
@@ -131,14 +116,14 @@ actor_rollout_ref:
     enable_prefix_caching: True
 
     max_num_batched_tokens: 8192
-    max_num_seqs: 256
+    max_num_seqs: 64
 
     log_prob_use_dynamic_bsz: True
     log_prob_max_token_len_per_gpu: 50000
 
     agent:
       # This is AgentLoop/Ray worker count, not GPU count.
-      # Keeping it aligned with micro_rollout_n=8 avoids unnecessary padding.
+      # Keeping it aligned with rollout.n=8 avoids unnecessary padding.
       num_workers: 8
 
   ref:
@@ -151,6 +136,7 @@ actor_rollout_ref:
       model_dtype: bfloat16
 
 trainer:
+  use_v1: false
   project_name: rein_sql_v3
   experiment_name: rein_sql_v3_h100_2gpu
   logger: ["console", "tensorboard"]
