@@ -1,0 +1,170 @@
+# 2 x H100 80GB baseline for REIN-style Text-to-SQL GRPO.
+# Default target: Qwen3-4B class model.
+#
+# For Qwen3-8B, first try:
+#   actor_rollout_ref.rollout.tensor_model_parallel_size: 2
+#
+# This file assumes the same verl config tree used by rein_sql_trainer.py.
+
+hydra:
+  searchpath:
+    - file:///zhiliang/verl/verl/trainer/config
+
+defaults:
+  - ppo_trainer
+  - _self_
+
+data:
+  train_files: /zhiliang/data/train_v3.parquet
+  val_files: /zhiliang/data/val_v3.parquet
+
+  # build_v3_train_data.py writes chat messages into this column.
+  prompt_key: messages
+
+  max_prompt_length: 6144
+  max_response_length: 2048
+
+  # One prompt ultimately contributes 8 trajectories.
+  # 4 prompts -> 32 trajectories per policy update.
+  train_batch_size: 32
+  gen_batch_size: ${data.train_batch_size}
+  val_batch_size: 128
+
+  filter_overlong_prompts: True
+  filter_overlong_prompts_workers: 22
+  truncation: error
+  shuffle: True
+
+custom_reward_function:
+  path: /zhiliang/rein_sql_v3_final/sql_reward.py
+  name: compute_score
+  reward_kwargs:
+    db_root: /zhiliang/data/train_databases
+    dev_db_root: /zhiliang/data/dev_databases
+    exec_timeout: 30.0
+
+# SQL reward is executed by sql_reward.py in the custom trainer.  The verl
+# agent reward loop expects a generic ``label`` field and must stay disabled.
+reward_model:
+  use_reward_loop: false
+
+algorithm:
+  adv_estimator: grpo
+  norm_adv_by_std_in_grpo: True
+  use_kl_in_reward: False
+
+  filter_groups:
+    enable: False
+
+  adaptive_rollout:
+    # Fixed rollout mode: dynamic/adaptive sampling is disabled.
+    enable: False
+
+    n_correct: 4
+    n_wrong: 4
+    probe_n: 8
+
+    correct_threshold: 1.0
+    max_num_gen_batches: 0
+    stage2_dump_path: null
+
+    beyond_n_abstain: 2
+    within_abstain_cap: 2
+
+    reward_values:
+      format_per_tag: 0.1
+      format_full: 0.3
+      sql_correct: 0.7
+      draft_correct_bonus: 0.2
+      sql_wrong: 0.0
+      draft_correct_on_wrong: 0.1
+      abstain_beyond: 0.3
+      abstain_within: 0.0
+
+actor_rollout_ref:
+  model:
+    # Change to your local model directory or HF model id.
+    path: /zhiliang/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554
+    use_remove_padding: True
+    enable_gradient_checkpointing: True
+    lora_rank: 0
+
+  actor:
+    use_dynamic_bsz: True
+    optim:
+      lr: 1.0e-6
+
+    # 32 trajectories are collected when train_batch_size=4 and n=8.
+    ppo_mini_batch_size: 32
+    ppo_max_token_len_per_gpu: 32000
+    use_kl_loss: True
+    kl_loss_coef: 0.001
+    kl_loss_type: low_var_kl
+
+    fsdp_config:
+      param_offload: False
+      optimizer_offload: True
+      model_dtype: bfloat16
+
+  rollout:
+    name: vllm
+    mode: async
+    dtype: bfloat16
+
+    # Must equal n_correct + n_wrong.
+    n: 8
+    temperature: 1.1
+    top_p: 1.0
+    top_k: -1
+
+    # Qwen3-4B: TP=1 is the preferred 2xH100 starting point.
+    # Qwen3-8B: start with TP=2 if memory/KV cache is tight.
+    tensor_model_parallel_size: 1
+    gpu_memory_utilization: 0.75
+    data_parallel_size: 1
+    pipeline_model_parallel_size: 1
+    prompt_length: 6144
+    max_model_len: 8192
+
+    free_cache_engine: True
+    enable_chunked_prefill: True
+    enable_prefix_caching: True
+
+    max_num_batched_tokens: 8192
+    max_num_seqs: 256
+
+    log_prob_use_dynamic_bsz: True
+    log_prob_max_token_len_per_gpu: 50000
+
+    agent:
+      # This is AgentLoop/Ray worker count, not GPU count.
+      # Keeping it aligned with micro_rollout_n=8 avoids unnecessary padding.
+      num_workers: 8
+
+  ref:
+    log_prob_use_dynamic_bsz: True
+    log_prob_max_token_len_per_gpu: 50000
+
+    fsdp_config:
+      param_offload: False
+      optimizer_offload: False
+      model_dtype: bfloat16
+
+trainer:
+  project_name: rein_sql_v3
+  experiment_name: rein_sql_v3_h100_2gpu
+  logger: ["console", "tensorboard"]
+  logger_path: /zhiliang/rein_sql_v3_final/score.log
+
+  nnodes: 1
+  n_gpus_per_node: 2
+
+  balance_batch: True
+  val_before_train: False
+  critic_warmup: 0
+  resume_mode: auto
+  save_freq: 25
+  test_freq: 25
+  default_local_dir: /zhiliang/rein_sql_v3_final/checkpoints
+  default_hdfs_dir: null
+  rollout_data_dir: /zhiliang/rein_sql_v3_final/rollout_data

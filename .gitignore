@@ -1,0 +1,34 @@
+# Python cache and environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local secrets and environment variables
+.env
+.env.*
+!.env.example
+
+# Training outputs and logs
+logs/
+outputs/
+tensorboard_log/
+*.log
+
+# Model checkpoints and large generated artifacts
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
