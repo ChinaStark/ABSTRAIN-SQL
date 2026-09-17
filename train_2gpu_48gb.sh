@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-/zhiliang/conda_env/verl_dynamic/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
 DATA_ROOT_REL="${DATA_ROOT_REL:-..}"
 GENERATED_DIR="${GENERATED_DIR:-generated_data}"
