@@ -40,7 +40,13 @@ from verl.utils.metric import reduce_metrics
 from verl.utils.profiler import marked_timer
 from verl.utils.skip import SkipManager
 
-from boundary import BEYOND, WITHIN, RewardValues, trajectory_reward
+from boundary import (
+    BEYOND,
+    WITHIN,
+    RewardValues,
+    compute_abstain_scale,
+    trajectory_reward,
+)
 from output_protocol import parse_response
 from sql_reward import score_sql
 
@@ -52,9 +58,21 @@ class RayREINSQLTrainer(RayPPOTrainer):
     # setup helpers
     # ------------------------------------------------------------------ #
     def _rein_cfg(self):
-        """Return fixed-rollout REIN-SQL reward configuration."""
-        cfg = self.config.algorithm.get("rein_sql", None)
-        defaults = dict(correct_threshold=1.0)
+        """Return the REIN-SQL rollout and reward configuration."""
+        cfg = self.config.algorithm.get("adaptive_rollout", None)
+        if cfg is None:
+            # Backward compatibility for checkpoints/configs created by this repo.
+            cfg = self.config.algorithm.get("rein_sql", None)
+        defaults = dict(
+            enable=False,
+            n_correct=4,
+            n_wrong=4,
+            b_max=8,
+            micro_rollout_n=8,
+            correct_threshold=1.0,
+            max_num_gen_batches=0,
+            stage2_dump_path=None,
+        )
         if cfg is None:
             merged = defaults
             reward_cfg = {}
@@ -70,11 +88,12 @@ class RayREINSQLTrainer(RayPPOTrainer):
         # v3 RewardValues defaults match the final reward ladder; only apply
         # overrides for fields that actually exist in the dataclass.
         _rv_fields = RewardValues.__dataclass_fields__
-        rv_kwargs = {
-            name: float(reward_cfg[name])
-            for name in _rv_fields
-            if name in reward_cfg
-        }
+        rv_kwargs = {}
+        for name, field in _rv_fields.items():
+            if name not in reward_cfg:
+                continue
+            value = reward_cfg[name]
+            rv_kwargs[name] = int(value) if field.type in (int, "int") else float(value)
         merged["reward_values"] = RewardValues(**rv_kwargs)
         return merged
 
@@ -228,21 +247,31 @@ class RayREINSQLTrainer(RayPPOTrainer):
 
         kept_rows = []
         kept_scores = []
+        abstain_counts = [0] * n_prompts
+        capped_abstains = 0
         for i in range(len(gen_out)):
             p_idx = i // group_size
             row = gen_out.slice(i, i + 1)
             parsed = parsed_meta[i]
             abstained = bool(parsed["abstained"])
+            reward_as_abstain = abstained
+            if abstained:
+                cap = max(0, int(reward_values.abstain_cap))
+                if abstain_counts[p_idx] >= cap:
+                    reward_as_abstain = False
+                    capped_abstains += 1
+                abstain_counts[p_idx] += 1
             final_exec = float(exec_scores[i])
             draft_exec = float(draft_scores[i])
             reflection_present = bool(parsed["reflection_present"])
             r = trajectory_reward(
                 final_exec=final_exec, draft_exec=draft_exec,
-                abstained=abstained, boundary=boundaries[p_idx],
+                abstained=reward_as_abstain, boundary=boundaries[p_idx],
                 reflection_present=reflection_present,
                 has_draft=bool(parsed["has_draft"]),
                 has_answer=bool(parsed["has_answer"]),
                 correct_threshold=thr, values=reward_values,
+                global_step=self.global_steps,
             )
             kept_rows.append(row)
             kept_scores.append(r)
@@ -252,6 +281,10 @@ class RayREINSQLTrainer(RayPPOTrainer):
             "rein/num_within": n_within,
             "rein/num_beyond": n_beyond,
             "rein/selected_abstain": sum(1 for m in parsed_meta if m["abstained"]),
+            "rein/capped_abstain": capped_abstains,
+            "rein/abstain_reward_scale": compute_abstain_scale(
+                self.global_steps, reward_values
+            ),
             "rein/rollouts_per_prompt": int(group_size),
         }
 

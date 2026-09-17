@@ -19,14 +19,23 @@ venv/
 logs/
 outputs/
 tensorboard_log/
+rollout_data*/
+runs/
+wandb/
 *.log
 
 # Model checkpoints and large generated artifacts
 checkpoints/
+checkpoints_*/
+checkpoint_cleanup_*.json
 *.ckpt
 *.pt
 *.pth
 *.safetensors
+
+# Local operational notes and imported reference material
+current.md
+REIN *.md
 
 # Editor and OS files
 .vscode/

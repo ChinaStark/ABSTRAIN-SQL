@@ -53,9 +53,16 @@ algorithm:
   filter_groups:
     enable: False
 
-  rein_sql:
-    # Every prompt receives exactly actor_rollout_ref.rollout.n samples.
+  adaptive_rollout:
+    # The reference run used fixed groups; keep that behavior on H100.
+    enable: False
+    n_correct: 4
+    n_wrong: 4
+    b_max: 8
+    micro_rollout_n: 8
     correct_threshold: 1.0
+    max_num_gen_batches: 0
+    stage2_dump_path: null
     reward_values:
       format_per_tag: 0.1
       format_full: 0.3
@@ -65,6 +72,11 @@ algorithm:
       draft_correct_on_wrong: 0.1
       abstain_beyond: 0.3
       abstain_within: 0.0
+      # Disable abstention warmup/ramp: reward is fully active from step 1.
+      abstain_warmup_steps: 0
+      abstain_ramp_steps: 0
+      # Disable capping for the fixed rollout.n=8 group.
+      abstain_cap: 8
 
 actor_rollout_ref:
   model:
@@ -83,7 +95,7 @@ actor_rollout_ref:
     ppo_mini_batch_size: 32
     ppo_max_token_len_per_gpu: 32000
     use_kl_loss: True
-    kl_loss_coef: 0.001
+    kl_loss_coef: 0.05
     kl_loss_type: low_var_kl
 
     fsdp_config:
@@ -139,7 +151,7 @@ trainer:
   use_v1: false
   project_name: rein_sql_v3
   experiment_name: rein_sql_v3_h100_1gpu
-  logger: ["console", "tensorboard"]
+  logger: ["console", "tensorboard", "wandb"]
   logger_path: /zhiliang/rein_sql_v3_final/score.log
 
   nnodes: 1

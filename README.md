@@ -69,8 +69,11 @@ WITHIN : reward correct SQL, penalize ABSTAIN
 BEYOND : reward ABSTAIN, give wrong SQL no extra correctness reward
 ```
 
-The current ladder is configured under `algorithm.rein_sql.reward_values` in the
-YAML files. SQL execution arguments are under
+The current ladder is configured under
+`algorithm.adaptive_rollout.reward_values` in the YAML files. The H100 configs
+disable abstention warmup and use a cap of eight, equal to the fixed rollout
+group size, so abstention reward is fully active from the first training step
+and no rollout is excluded by a cap. SQL execution arguments are under
 `reward.custom_reward_function.reward_kwargs`, which is the verl 0.9 config
 layout.
 
@@ -80,11 +83,12 @@ layout.
 
 ```bash
 cd /zhiliang/rein_sql_v3_final
-CUDA_VISIBLE_DEVICES=0 \
-PYTHONPATH=/zhiliang/rein_sql_v3_final \
-/zhiliang/conda_env/verl_dynamic/bin/python train_rein_sql.py \
-  --config-name rein_sql_v3_h100_1gpu
+./train_h100.sh
 ```
+
+The single-H100 launcher starts fresh (`resume_mode=disable`), samples at
+temperature 1.0, and writes checkpoints and rollout data to directories named
+after `RUN_NAME`.
 
 2 GPUs:
 
@@ -94,6 +98,13 @@ CUDA_VISIBLE_DEVICES=0,1 \
 PYTHONPATH=/zhiliang/rein_sql_v3_final \
 /zhiliang/conda_env/verl_dynamic/bin/python train_rein_sql.py \
   --config-name rein_sql_v3_h100_2gpu
+```
+
+2 x 48GB GPUs (conservative memory profile):
+
+```bash
+cd /zhiliang/rein_sql_v3_final
+./train_2gpu_48gb.sh
 ```
 
 Small smoke test:

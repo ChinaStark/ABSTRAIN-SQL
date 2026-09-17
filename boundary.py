@@ -42,6 +42,29 @@ class RewardValues:
     # 0.3 + 0.0 = 0.3 for an unnecessary abstention.
     abstain_within: float = 0.0
 
+    # Delay abstention learning until the model has first learned to produce SQL.
+    abstain_warmup_steps: int = 30
+    abstain_ramp_steps: int = 20
+
+    # At most this many abstentions in one GRPO group receive abstention reward.
+    abstain_cap: int = 2
+
+
+def compute_abstain_scale(
+    global_step: int,
+    values: RewardValues = RewardValues(),
+) -> float:
+    """Return the scheduled abstention-reward scale in ``[0, 1]``."""
+    warmup = values.abstain_warmup_steps
+    ramp = values.abstain_ramp_steps
+    if global_step <= warmup:
+        return 0.0
+    if ramp <= 0:
+        return 1.0
+    if global_step <= warmup + ramp:
+        return (global_step - warmup) / ramp
+    return 1.0
+
 
 def classify_probe(exec_scores: list[float], correct_threshold: float = 1.0) -> str:
     """At least one correct probe -> WITHIN; all probes wrong -> BEYOND."""
@@ -75,6 +98,7 @@ def trajectory_reward(
     has_answer: bool,
     correct_threshold: float = 1.0,
     values: RewardValues = RewardValues(),
+    global_step: int = 0,
 ) -> float:
     """Compute the boundary-aware scalar trajectory reward."""
     fmt = format_score(has_draft, reflection_present, has_answer, values)
@@ -94,7 +118,10 @@ def trajectory_reward(
 
     if abstained:
         if boundary == BEYOND:
-            return values.format_full + values.abstain_beyond
+            return (
+                values.format_full
+                + values.abstain_beyond * compute_abstain_scale(global_step, values)
+            )
         if boundary == WITHIN:
             return values.format_full + values.abstain_within
         raise ValueError(f"unknown boundary={boundary!r}")
