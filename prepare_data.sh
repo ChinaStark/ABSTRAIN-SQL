@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 GENERATED_DIR="${GENERATED_DIR:-${PROJECT_DIR}/generated_data}"
 if [[ -z "${DATA_ROOT_REL:-}" ]]; then
   if [[ -f "${PROJECT_DIR}/train_sql_lt60s_with_schema.parquet" ]]; then

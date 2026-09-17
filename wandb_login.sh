@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PYTHON_BIN="${PYTHON_BIN:-python}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 if [[ -n "${WANDB_API_KEY:-}" ]]; then
   "${PYTHON_BIN}" -m wandb login "${WANDB_API_KEY}"
