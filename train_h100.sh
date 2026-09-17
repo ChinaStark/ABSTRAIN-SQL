@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-/zhiliang/conda_env/verl_dynamic/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 RUN_NAME="${RUN_NAME:-rein_sql_v3_h100_temp10_fresh}"
 CHECKPOINT_DIR="${CHECKPOINT_DIR:-${PROJECT_DIR}/checkpoints_${RUN_NAME}}"
