@@ -14,6 +14,7 @@ export PYTHONPATH="${PROJECT_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 cd "${PROJECT_DIR}"
 exec "${PYTHON_BIN}" train_rein_sql.py \
   --config-name rein_sql_v3_h100_1gpu \
+  reward.custom_reward_function.path="${PROJECT_DIR}/sql_reward.py" \
   actor_rollout_ref.rollout.temperature=1.0 \
   trainer.resume_mode=disable \
   trainer.experiment_name="${RUN_NAME}" \

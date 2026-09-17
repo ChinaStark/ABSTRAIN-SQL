@@ -35,6 +35,7 @@ exec "${PYTHON_BIN}" train_rein_sql.py \
   --config-name rein_sql_v3_h100_2gpu \
   data.train_files="${TRAIN_FILE}" \
   data.val_files="${VAL_FILE}" \
+  reward.custom_reward_function.path="${PROJECT_DIR}/sql_reward.py" \
   reward.custom_reward_function.reward_kwargs.db_root="${TRAIN_DB_ROOT}" \
   reward.custom_reward_function.reward_kwargs.dev_db_root="${DEV_DB_ROOT}" \
   actor_rollout_ref.model.path="${MODEL_PATH}" \
