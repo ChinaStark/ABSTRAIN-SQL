@@ -5,10 +5,16 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 cd "${PROJECT_DIR}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
-DATA_ROOT_REL="${DATA_ROOT_REL:-.}"
 GENERATED_DIR="${GENERATED_DIR:-generated_data}"
 TRAIN_FILE="${TRAIN_FILE:-${GENERATED_DIR}/train_v3.parquet}"
 VAL_FILE="${VAL_FILE:-${GENERATED_DIR}/val_v3.parquet}"
+if [[ -z "${DATA_ROOT_REL:-}" ]]; then
+  if [[ -d "${PROJECT_DIR}/train_databases" ]]; then
+    DATA_ROOT_REL="."
+  else
+    DATA_ROOT_REL=".."
+  fi
+fi
 TRAIN_DB_ROOT="${TRAIN_DB_ROOT:-${DATA_ROOT_REL}/train_databases}"
 DEV_DB_ROOT="${DEV_DB_ROOT:-${DATA_ROOT_REL}/dev_databases}"
 

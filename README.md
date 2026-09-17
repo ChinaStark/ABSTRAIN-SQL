@@ -110,11 +110,12 @@ cd /zhiliang/rein_sql_v3_final
 ```
 
 The three commands are separate: W&B login, data conversion, and training.
-The scripts use the raw files in the repository (`./train_sql_lt60s_with_schema.parquet`,
-`./dev_with_schema.parquet`, `./train_databases`, `./dev_databases`, and
-`./models`). Override paths with `DATA_ROOT_REL`, `RAW_TRAIN_FILE`,
-`RAW_VAL_FILE`, `TRAIN_FILE`, `VAL_FILE`, `TRAIN_DB_ROOT`, `DEV_DB_ROOT`, or
-`MODEL_PATH` when needed.
+The scripts automatically locate the raw files either in the repository or in
+its parent directory (`train_sql_lt60s_with_schema.parquet`,
+`dev_with_schema.parquet`, `train_databases`, `dev_databases`, and `models`).
+Override the location with `DATA_ROOT_REL`, or override individual paths with
+`RAW_TRAIN_FILE`, `RAW_VAL_FILE`, `TRAIN_FILE`, `VAL_FILE`, `TRAIN_DB_ROOT`,
+`DEV_DB_ROOT`, or `MODEL_PATH` when needed.
 Small smoke test:
 
 ```bash

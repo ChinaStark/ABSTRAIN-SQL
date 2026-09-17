@@ -3,8 +3,14 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-DATA_ROOT_REL="${DATA_ROOT_REL:-.}"
 GENERATED_DIR="${GENERATED_DIR:-${PROJECT_DIR}/generated_data}"
+if [[ -z "${DATA_ROOT_REL:-}" ]]; then
+  if [[ -f "${PROJECT_DIR}/train_sql_lt60s_with_schema.parquet" ]]; then
+    DATA_ROOT_REL="."
+  else
+    DATA_ROOT_REL=".."
+  fi
+fi
 RAW_TRAIN_FILE="${RAW_TRAIN_FILE:-${DATA_ROOT_REL}/train_sql_lt60s_with_schema.parquet}"
 RAW_VAL_FILE="${RAW_VAL_FILE:-${DATA_ROOT_REL}/dev_with_schema.parquet}"
 
