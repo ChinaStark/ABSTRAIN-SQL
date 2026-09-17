@@ -4,31 +4,32 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-/zhiliang/conda_env/verl_dynamic/bin/python}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
-PARENT_DIR="$(cd "${PROJECT_DIR}/.." && pwd)"
-if [[ -z "${DATA_ROOT:-}" ]]; then
-  if [[ -d "${PARENT_DIR}/data" ]]; then
-    DATA_ROOT="${PARENT_DIR}/data"
-  else
-    DATA_ROOT="${PARENT_DIR}"
+DATA_ROOT_REL="${DATA_ROOT_REL:-..}"
+GENERATED_DIR="${GENERATED_DIR:-generated_data}"
+RAW_TRAIN_FILE="${RAW_TRAIN_FILE:-${DATA_ROOT_REL}/train_sql_lt60s_with_schema.parquet}"
+RAW_VAL_FILE="${RAW_VAL_FILE:-${DATA_ROOT_REL}/dev_with_schema.parquet}"
+TRAIN_FILE="${TRAIN_FILE:-${GENERATED_DIR}/train_v3.parquet}"
+VAL_FILE="${VAL_FILE:-${GENERATED_DIR}/val_v3.parquet}"
+TRAIN_DB_ROOT="${TRAIN_DB_ROOT:-${DATA_ROOT_REL}/train_databases}"
+DEV_DB_ROOT="${DEV_DB_ROOT:-${DATA_ROOT_REL}/dev_databases}"
+
+if [[ -z "${MODEL_PATH:-}" ]]; then
+  MODEL_PATH="${DATA_ROOT_REL}/models"
+  MODEL_SNAPSHOT="${DATA_ROOT_REL}/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554"
+  if [[ -f "${MODEL_SNAPSHOT}/config.json" ]]; then
+    MODEL_PATH="${MODEL_SNAPSHOT}"
   fi
 fi
-if [[ -z "${TRAIN_FILE:-}" ]]; then
-  if [[ -f "${DATA_ROOT}/train_v3.parquet" ]]; then
-    TRAIN_FILE="${DATA_ROOT}/train_v3.parquet"
-  else
-    TRAIN_FILE="${DATA_ROOT}/train_sql_lt60s_with_schema.parquet"
-  fi
+
+mkdir -p "${GENERATED_DIR}"
+if [[ ! -f "${TRAIN_FILE}" ]]; then
+  [[ -f "${RAW_TRAIN_FILE}" ]] || { echo "Missing training parquet: ${RAW_TRAIN_FILE}" >&2; exit 1; }
+  "${PYTHON_BIN}" build_v3_train_data.py "${RAW_TRAIN_FILE}" "${TRAIN_FILE}"
 fi
-if [[ -z "${VAL_FILE:-}" ]]; then
-  if [[ -f "${DATA_ROOT}/val_v3.parquet" ]]; then
-    VAL_FILE="${DATA_ROOT}/val_v3.parquet"
-  else
-    VAL_FILE="${DATA_ROOT}/dev_with_schema.parquet"
-  fi
+if [[ ! -f "${VAL_FILE}" ]]; then
+  [[ -f "${RAW_VAL_FILE}" ]] || { echo "Missing validation parquet: ${RAW_VAL_FILE}" >&2; exit 1; }
+  "${PYTHON_BIN}" build_v3_train_data.py "${RAW_VAL_FILE}" "${VAL_FILE}"
 fi
-TRAIN_DB_ROOT="${TRAIN_DB_ROOT:-${DATA_ROOT}/train_databases}"
-DEV_DB_ROOT="${DEV_DB_ROOT:-${DATA_ROOT}/dev_databases}"
-MODEL_PATH="${MODEL_PATH:-/zhiliang/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554}"
 
 export CUDA_VISIBLE_DEVICES
 export PYTHONPATH="${PROJECT_DIR}${PYTHONPATH:+:${PYTHONPATH}}"

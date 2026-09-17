@@ -20,6 +20,7 @@ logs/
 outputs/
 tensorboard_log/
 rollout_data*/
+generated_data/
 runs/
 wandb/
 *.log

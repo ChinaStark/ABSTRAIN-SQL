@@ -107,13 +107,13 @@ cd /zhiliang/rein_sql_v3_final
 ./train_2gpu_48gb.sh
 ```
 
-The 48GB launcher assumes the repository is beside a `data` directory and
-uses `../data/train_v3.parquet`, `../data/val_v3.parquet`,
-`../data/train_databases`, `../data/dev_databases`, and the local Qwen3-4B
-snapshot. If v3 parquet files are absent it falls back to the raw
-`train_sql_lt60s_with_schema.parquet` and `dev_with_schema.parquet`. Override these with
-`DATA_ROOT`, `TRAIN_FILE`, `VAL_FILE`, `TRAIN_DB_ROOT`, `DEV_DB_ROOT`, and
-`MODEL_PATH` when the clone or model directory is elsewhere.
+The 48GB launcher assumes the repository is beside the raw data files and
+uses `../train_sql_lt60s_with_schema.parquet`, `../dev_with_schema.parquet`,
+`../train_databases`, `../dev_databases`, and `../models`. It automatically
+converts the raw parquet files into `generated_data/train_v3.parquet` and
+`generated_data/val_v3.parquet` when those files do not exist. Override these
+with `DATA_ROOT_REL`, `RAW_TRAIN_FILE`, `RAW_VAL_FILE`, `TRAIN_FILE`,
+`VAL_FILE`, `TRAIN_DB_ROOT`, `DEV_DB_ROOT`, or `MODEL_PATH` when needed.
 Small smoke test:
 
 ```bash
